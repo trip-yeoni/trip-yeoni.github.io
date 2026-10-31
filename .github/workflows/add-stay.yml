@@ -5,7 +5,7 @@ name: add stay
 on:
   workflow_dispatch:
     inputs:
-      no:    { description: '번호', required: true }
+      num:   { description: '번호', required: true }
       name:  { description: '표시 이름 (실제 숙소명 금지)', required: true }
       tags:  { description: '태그 3개, | 로 구분', required: true }
       url:   { description: '예약 링크', required: true }
@@ -22,7 +22,7 @@ jobs:
       - run: pip install pillow
       - name: Add
         env:
-          NO: ${{ inputs.no }}
+          NO: ${{ inputs.num }}
           NAME: ${{ inputs.name }}
           TAGS: ${{ inputs.tags }}
           URL: ${{ inputs.url }}
@@ -53,5 +53,5 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "Add [${{ inputs.no }}] ${{ inputs.name }}"
+          git commit -am "Add [${{ inputs.num }}] ${{ inputs.name }}"
           git push
