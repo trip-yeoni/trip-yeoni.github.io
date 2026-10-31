@@ -1,0 +1,57 @@
+# 프로필 링크 페이지에 숙소 한 줄 추가 (수동 실행).
+# 썸네일 주소(인스타 릴스 커버 등)를 받아 240x240 JPEG 로 줄여 index.html 에 넣고 main 에 커밋한다.
+name: add stay
+
+on:
+  workflow_dispatch:
+    inputs:
+      no:    { description: '번호', required: true }
+      name:  { description: '표시 이름 (실제 숙소명 금지)', required: true }
+      tags:  { description: '태그 3개, | 로 구분', required: true }
+      url:   { description: '예약 링크', required: true }
+      thumb: { description: '썸네일 이미지 주소', required: true }
+
+permissions:
+  contents: write
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install pillow
+      - name: Add
+        env:
+          NO: ${{ inputs.no }}
+          NAME: ${{ inputs.name }}
+          TAGS: ${{ inputs.tags }}
+          URL: ${{ inputs.url }}
+          THUMB: ${{ inputs.thumb }}
+        run: |
+          python3 - <<'PY'
+          import os, io, json, base64, re, urllib.request
+          from PIL import Image
+          e = os.environ
+          raw = urllib.request.urlopen(urllib.request.Request(e['THUMB'], headers={'User-Agent': 'Mozilla/5.0'}), timeout=30).read()
+          im = Image.open(io.BytesIO(raw)).convert('RGB')
+          w, h = im.size; s = min(w, h)
+          im = im.crop(((w - s) // 2, (h - s) // 2, (w - s) // 2 + s, (h - s) // 2 + s)).resize((240, 240), Image.LANCZOS)
+          buf = io.BytesIO(); im.save(buf, 'JPEG', quality=80, optimize=True)
+          img = 'data:image/jpeg;base64,' + base64.b64encode(buf.getvalue()).decode()
+          p = 'index.html'; s = open(p, encoding='utf-8').read()
+          no = int(e['NO'])
+          if re.search(r'\{ no: %d,' % no, s): raise SystemExit('이미 있는 번호: %d' % no)
+          tags = [t.strip() for t in e['TAGS'].split('|') if t.strip()]
+          line = '  { no: %d, name: %s, tags: %s, url: %s, img: "%s" },\n' % (no, json.dumps(e['NAME'], ensure_ascii=False), json.dumps(tags, ensure_ascii=False).replace('","', '", "'), json.dumps(e['URL']), img)
+          i = s.index('const STAYS = [')
+          j = s.index('\n];', i)
+          s = s[:j + 1] + line + s[j + 1:]
+          open(p, 'w', encoding='utf-8').write(s)
+          print('added', no, len(buf.getvalue()), 'bytes')
+          PY
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Add [${{ inputs.no }}] ${{ inputs.name }}"
+          git push
